@@ -6,17 +6,12 @@ A lightweight, native Linux desktop GUI application designed specifically for th
 
 ## Features
 
-1. **🌪️ Dual Arc Flow Fan Control & Custom Curves**:
-   - 🔄 **Auto (Factory)**: Uses the ASUS Embedded Controller firmware curve.
-   - 🍃 **Quiet Curve**: Delays fan spin-up until 70°C+ for whisper-quiet acoustics.
-   - ⚡ **Aggressive**: Kicks fans into gear early to maintain low temperatures during gaming / compiling.
-   - 🌪️ **Max Turbo (100%)**: Instant 100% full airflow for fast cool-down or render tasks.
-   - Real-time fan speed telemetry for both **CPU Fan** and **GPU Fan** in RPM.
-
-2. **⚡ Performance Profiles (via `asusctl`)**:
-   - 🍃 **Quiet**: Low acoustic fan profile, power conservation.
-   - ⚖️ **Balanced**: Dynamic balance of cooling, acoustics, and performance.
-   - 🚀 **Performance**: Maximum power limit and fan curves.
+1. **🌪️ Hardware EC Thermal Profiles & Fan Control**:
+   - 🚀 **Overboost Turbo Fans (`Performance`)**: Maximizes CPU/GPU power limit and applies the aggressive high-RPM cooling curve (up to 5500-6000 RPM) to keep temperatures low under heavy loads.
+   - ⚖️ **Standard Fans (`Balanced`)**: Dynamic balance of cooling airflow, acoustics, and clock speeds for daily tasks.
+   - 🍃 **Silent / Quiet Fans (`Quiet`)**: Acoustic-first low-RPM fan profile, prioritizing silent operation and power efficiency.
+   - *Note on Custom Curves:* On ASUS TUF laptops (FX517ZC), arbitrary software fan curves trigger the hardware EC's **BD PROCHOT** safety lock (clamping CPU to 400 MHz). The application uses the laptop's official hardware EC thermal policies to guarantee full boost clocks with zero throttling risk.
+   - Real-time telemetry for both **CPU Fan** and **GPU Fan** in RPM.
 
 3. **🔋 Battery Health Care (Charge Limit)**:
    - **60% (Lifespan)**: Ideal for permanent desk / gaming setup plugged into AC power.
