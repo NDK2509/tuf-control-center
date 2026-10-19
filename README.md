@@ -42,6 +42,51 @@ A lightweight, native Linux desktop GUI application designed specifically for th
 
 ---
 
+## Prerequisites: Installing `asusctl`
+
+This application interfaces directly with the `asusd` system daemon and `asusctl` CLI tool for profile, battery limit, and keyboard backlight management. Ensure `asusctl` (v6.5.0+) is installed and running on your system:
+
+### 1. Install Build Dependencies & Rust Toolchain
+On Debian / Ubuntu:
+```bash
+sudo apt update
+sudo apt install -y build-essential cmake libclang-dev libudev-dev libfontconfig-dev libxkbcommon-dev git
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+source "$HOME/.cargo/env"
+```
+
+*(On Fedora: `sudo dnf install git make cmake clang-devel libxkbcommon-devel systemd-devel expat-devel pcre2-devel libzstd-devel rust cargo`)*  
+*(On Arch Linux: `sudo pacman -S --needed git cmake clang pkg-config libzip rust openssl`)*
+
+### 2. Clone the Upstream Repository & Compile
+```bash
+git clone https://github.com/OpenGamingCollective/asusctl.git
+cd asusctl
+git checkout 6.5.0
+make
+sudo make install
+```
+
+### 3. Enable and Start the `asusd` Daemon
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now asusd
+```
+
+### 4. Verify Installation
+```bash
+asusctl info
+```
+Output should confirm:
+```text
+asusctl v6.5.0
+Software version: 6.5.0
+  Product family: ASUS TUF Dash F15
+      Board name: FX517ZC
+```
+
+---
+
 ## How to Launch
 
 ### 1. From Terminal
@@ -49,5 +94,5 @@ A lightweight, native Linux desktop GUI application designed specifically for th
 asus-tuf-control
 ```
 
-### 2. From XFCE Application Menu
+### 2. From Application Menu
 Search for **ASUS TUF Control Center** in your application launcher (under *Settings* or *System*), or pin it directly to your panel/desktop.

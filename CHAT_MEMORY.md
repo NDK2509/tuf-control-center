@@ -94,4 +94,14 @@ Integrated full hardware AURA effect control for ASUS TUF Dash F15 (`aura_tuf.ro
 * **Brightness Control**: 4 hardware levels (`Off`, `Low`, `Med`, `High`).
 * **Hardware Interfacing**: Real-time D-Bus communication with `asusctl aura effect <mode>` and parsing `/etc/asusd/aura_tuf.ron`.
 
+---
+
+## 6. Upgraded `asusctl` to `v6.5.0` (2026-10-20)
+
+* **Migration**: Transferred upstream git tracking from the archived GitLab repository (`asus-linux/asusctl`) to the active GitHub organization ([`OpenGamingCollective/asusctl`](https://github.com/OpenGamingCollective/asusctl)).
+* **Version**: Upgraded from `v6.3.6` to `v6.5.0`.
+* **Binaries Updated**: `/usr/bin/asusctl`, `/usr/bin/asusd`, `/usr/bin/asusd-user`, `/usr/bin/asus-shutdown`.
+* **Service Status**: `asusd.service` successfully reloaded and running active on `v6.5.0`.
+
+
 
