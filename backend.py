@@ -250,3 +250,86 @@ def get_system_summary() -> Dict[str, str]:
         "dgpu": "NVIDIA GeForce RTX 3050 Mobile",
         "igpu": "Intel UHD Graphics (Alder Lake-P GT1)",
     }
+
+def get_gpu_telemetry() -> Dict[str, Any]:
+    """Collects real-time telemetry for Intel UHD iGPU and NVIDIA RTX 3050 dGPU."""
+    data = {
+        "igpu_freq": 0,
+        "igpu_usage": 0,
+        "vram_mb": 0.0,
+        "dgpu_state": "D3cold",
+        "dgpu_status": "Sleep (0W)",
+        "dgpu_active": False,
+        "gpu_fan_rpm": 0,
+        "active_clients": [],
+    }
+
+    # 1. Intel iGPU active clock frequency (0 to 1200 MHz)
+    try:
+        if os.path.exists("/sys/class/drm/card1/gt_act_freq_mhz"):
+            with open("/sys/class/drm/card1/gt_act_freq_mhz") as f:
+                val = int(f.read().strip())
+                data["igpu_freq"] = val
+                data["igpu_usage"] = min(100, int((val / 1200.0) * 100))
+    except Exception:
+        pass
+
+    # 2. NVIDIA RTX 3050 dGPU runtime power state
+    try:
+        p_path = "/sys/class/drm/card0/device/power/runtime_status"
+        if os.path.exists(p_path):
+            with open(p_path) as f:
+                st = f.read().strip()
+                if st == "suspended":
+                    data["dgpu_status"] = "Sleep (0W)"
+                    data["dgpu_active"] = False
+                else:
+                    data["dgpu_status"] = "Active 3D"
+                    data["dgpu_active"] = True
+        if os.path.exists("/sys/class/drm/card0/device/power_state"):
+            with open("/sys/class/drm/card0/device/power_state") as f:
+                data["dgpu_state"] = f.read().strip()
+    except Exception:
+        pass
+
+    # 3. Dedicated GPU Fan RPM
+    for p in glob.glob("/sys/devices/platform/asus-nb-wmi/hwmon/hwmon*/fan2_input"):
+        try:
+            with open(p) as f:
+                data["gpu_fan_rpm"] = int(f.read().strip())
+        except Exception:
+            pass
+
+    # 4. Process VRAM allocation from DRM fdinfo
+    vram_kib = 0
+    clients = set()
+    try:
+        for pid in os.listdir("/proc"):
+            if not pid.isdigit():
+                continue
+            fd_dir = f"/proc/{pid}/fdinfo"
+            if not os.path.exists(fd_dir):
+                continue
+            try:
+                for fd in os.listdir(fd_dir):
+                    p = f"{fd_dir}/{fd}"
+                    try:
+                        with open(p, "r") as f:
+                            txt = f.read(350)
+                        if "drm-driver:" in txt:
+                            for line in txt.splitlines():
+                                if line.startswith("drm-total-system0:"):
+                                    vram_kib += int(line.split(":")[1].strip())
+                            with open(f"/proc/{pid}/comm") as fc:
+                                clients.add(fc.read().strip())
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    data["vram_mb"] = round(vram_kib / 1024.0, 1)
+    data["active_clients"] = sorted(list(clients))[:3]
+    return data
+

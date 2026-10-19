@@ -30,6 +30,7 @@ TUF_GOLD = "#ffaa00"
 TUF_GOLD_HOVER = "#ffbe33"
 TUF_CYAN = "#00e5ff"
 TUF_CYAN_DIM = "#007a8a"
+TUF_PURPLE = "#c084fc"
 ACCENT_GREEN = "#10b981"
 ACCENT_RED = "#ff3b57"
 TEXT_WHITE = "#ffffff"
@@ -108,6 +109,69 @@ class CoreEqualizerCanvas(tk.Canvas):
             # Core index label
             self.create_text(x0 + bar_w / 2, self.h - 4, text=f"{i+1}",
                              fill=TEXT_MUTED, font=("Noto Sans", 6, "bold"))
+
+
+class GpuVirtualizerCanvas(tk.Canvas):
+    """Virtualizes Intel UHD iGPU clock/load and NVIDIA RTX 3050 dGPU power state."""
+    def __init__(self, parent, width=200, height=52, **kwargs):
+        super().__init__(parent, width=width, height=height, bg=BG_CARD,
+                         highlightthickness=0, bd=0, **kwargs)
+        self.w = width
+        self.h = height
+        self.igpu_freq = 0
+        self.igpu_usage = 0
+        self.vram_mb = 0.0
+        self.dgpu_active = False
+        self.dgpu_status = "Sleep (0W)"
+        self.draw()
+
+    def update_gpu(self, igpu_freq: int, igpu_usage: int, vram_mb: float, dgpu_active: bool, dgpu_status: str):
+        self.igpu_freq = igpu_freq
+        self.igpu_usage = igpu_usage
+        self.vram_mb = vram_mb
+        self.dgpu_active = dgpu_active
+        self.dgpu_status = dgpu_status
+        self.draw()
+
+    def draw(self):
+        self.delete("all")
+        pad_x = 8
+        avail_w = self.w - (pad_x * 2)
+
+        # 1. iGPU Section (Top)
+        y_top = 3
+        self.create_text(pad_x, y_top + 4, text="iGPU (Intel UHD)", fill=TUF_CYAN,
+                         font=("Noto Sans", 7, "bold"), anchor="w")
+        freq_str = f"{self.igpu_freq} MHz" if self.igpu_freq > 0 else "0 MHz (Idle)"
+        self.create_text(self.w - pad_x, y_top + 4, text=freq_str, fill=TEXT_MUTED,
+                         font=("Noto Sans", 7), anchor="e")
+
+        # iGPU meter bar
+        bar_y = y_top + 13
+        bar_h = 5
+        self.create_rectangle(pad_x, bar_y, pad_x + avail_w, bar_y + bar_h, fill="#202434", outline="")
+        ratio = min(1.0, max(0.04, self.igpu_usage / 100.0))
+        fill_w = ratio * avail_w
+        self.create_rectangle(pad_x, bar_y, pad_x + fill_w, bar_y + bar_h, fill=TUF_CYAN, outline="")
+
+        # 2. dGPU Section (Bottom)
+        y_bot = 27
+        self.create_text(pad_x, y_bot + 4, text="dGPU (RTX 3050)", fill=TUF_PURPLE,
+                         font=("Noto Sans", 7, "bold"), anchor="w")
+
+        if self.dgpu_active:
+            status_text = "● ACTIVE 3D"
+            pill_col = ACCENT_RED
+        else:
+            status_text = "● SLEEP (0W)"
+            pill_col = ACCENT_GREEN
+
+        self.create_text(self.w - pad_x, y_bot + 4, text=status_text, fill=pill_col,
+                         font=("Noto Sans", 7, "bold"), anchor="e")
+
+        vram_text = f"VRAM: {self.vram_mb} MB Allocated" if self.vram_mb > 0 else "Optimus Hybrid Power-Save"
+        self.create_text(pad_x, self.h - 4, text=vram_text, fill=TEXT_MUTED,
+                         font=("Noto Sans", 6), anchor="w")
 
 
 class DualFanVisualizerCanvas(tk.Canvas):
@@ -262,22 +326,26 @@ class CyberBatteryCanvas(tk.Canvas):
 
 
 class TelemetryHistoryChart(tk.Canvas):
-    """Rolling 30-sample real-time history wave chart for CPU Clock and Package Temperature."""
+    """Rolling 30-sample real-time history wave chart for CPU Clock, Temp, and GPU Load."""
     def __init__(self, parent, height=105, **kwargs):
         super().__init__(parent, height=height, bg=BG_CARD, highlightthickness=0, bd=0, **kwargs)
         self.h = height
         self.max_pts = 30
         self.cpu_history: List[float] = []
         self.temp_history: List[float] = []
+        self.gpu_history: List[float] = []
         self.bind("<Configure>", lambda e: self.draw())
 
-    def push_data(self, ghz: float, temp: float):
+    def push_data(self, ghz: float, temp: float, gpu_pct: float):
         self.cpu_history.append(ghz)
         self.temp_history.append(temp)
+        self.gpu_history.append(gpu_pct)
         if len(self.cpu_history) > self.max_pts:
             self.cpu_history.pop(0)
         if len(self.temp_history) > self.max_pts:
             self.temp_history.pop(0)
+        if len(self.gpu_history) > self.max_pts:
+            self.gpu_history.pop(0)
         self.draw()
 
     def draw(self):
@@ -318,6 +386,7 @@ class TelemetryHistoryChart(tk.Canvas):
 
         pts_cpu = []
         pts_temp = []
+        pts_gpu = []
 
         step_x = plot_w / (self.max_pts - 1)
         start_idx = self.max_pts - n
@@ -336,6 +405,18 @@ class TelemetryHistoryChart(tk.Canvas):
             ratio_temp = min(1.0, max(0.0, (val_temp - 30.0) / (100.0 - 30.0)))
             y_temp = pad_top + (1.0 - ratio_temp) * plot_h
             pts_temp.extend([x, y_temp])
+
+            # GPU: 0 to 100% scale
+            val_gpu = self.gpu_history[i] if i < len(self.gpu_history) else 0.0
+            ratio_gpu = min(1.0, max(0.0, val_gpu / 100.0))
+            y_gpu = pad_top + (1.0 - ratio_gpu) * plot_h
+            pts_gpu.extend([x, y_gpu])
+
+        # Draw GPU Line (Purple with glow)
+        if len(pts_gpu) >= 4:
+            self.create_line(pts_gpu, fill=TUF_PURPLE, width=1.8, smooth=True)
+            gx, gy = pts_gpu[-2], pts_gpu[-1]
+            self.create_oval(gx - 3, gy - 3, gx + 3, gy + 3, fill=TUF_PURPLE, outline="#ffffff", width=1)
 
         # Draw CPU Line (Cyan with glow)
         if len(pts_cpu) >= 4:
@@ -360,8 +441,8 @@ class TUFControlApp:
     def __init__(self, root: tk.Tk):
         self.root = root
         self.root.title("TUF Control Center - ASUS TUF Dash F15")
-        self.root.geometry("920x890")
-        self.root.minsize(880, 820)
+        self.root.geometry("1000x890")
+        self.root.minsize(960, 820)
         self.root.configure(bg=BG_MAIN)
 
         self.current_profile = "Balanced"
@@ -459,70 +540,91 @@ class TUFControlApp:
     def _build_telemetry_section(self, parent):
         telemetry_frame = tk.Frame(parent, bg=BG_MAIN)
         telemetry_frame.pack(fill=tk.X, pady=(0, 10))
-        telemetry_frame.columnconfigure((0, 1, 2), weight=1, uniform="telemetry")
+        telemetry_frame.columnconfigure((0, 1, 2, 3), weight=1, uniform="telemetry")
 
-        # ----------------- Card 1: CPU Speed & 12-Core Equalizer -----------------
-        self.card_cpu = self._create_card(telemetry_frame, 0, "⚡ CPU CLOCK & 12-CORE SPECTRUM")
+        # ----------------- Card 0: CPU Speed & 12-Core Equalizer -----------------
+        self.card_cpu = self._create_card(telemetry_frame, 0, "⚡ CPU CLOCK SPECTRUM")
         
         cpu_top_row = tk.Frame(self.card_cpu, bg=BG_CARD)
-        cpu_top_row.pack(fill=tk.X, padx=12, pady=(2, 0))
+        cpu_top_row.pack(fill=tk.X, padx=10, pady=(2, 0))
 
-        self.lbl_cpu_ghz = tk.Label(cpu_top_row, text="-- GHz", font=("Noto Sans", 17, "bold"), fg=TEXT_WHITE, bg=BG_CARD)
+        self.lbl_cpu_ghz = tk.Label(cpu_top_row, text="-- GHz", font=("Noto Sans", 16, "bold"), fg=TEXT_WHITE, bg=BG_CARD)
         self.lbl_cpu_ghz.pack(side=tk.LEFT)
 
         self.badge_cpu = tk.Label(cpu_top_row, text="NORMAL", font=("Noto Sans", 7, "bold"),
-                                  fg=ACCENT_GREEN, bg="#122b1e", padx=6, pady=2)
+                                  fg=ACCENT_GREEN, bg="#122b1e", padx=5, pady=2)
         self.badge_cpu.pack(side=tk.RIGHT, pady=4)
 
-        self.lbl_cpu_sub = tk.Label(self.card_cpu, text="Peak: -- GHz • 12 Cores Active",
+        self.lbl_cpu_sub = tk.Label(self.card_cpu, text="Peak: -- GHz • 12 Cores",
                                     font=("Noto Sans", 8), fg=TEXT_MUTED, bg=BG_CARD)
-        self.lbl_cpu_sub.pack(anchor="w", padx=12, pady=(0, 4))
+        self.lbl_cpu_sub.pack(anchor="w", padx=10, pady=(0, 4))
 
         # Core Equalizer Canvas
-        self.canvas_equalizer = CoreEqualizerCanvas(self.card_cpu, width=260, height=48)
-        self.canvas_equalizer.pack(fill=tk.X, padx=10, pady=(0, 8))
+        self.canvas_equalizer = CoreEqualizerCanvas(self.card_cpu, width=200, height=48)
+        self.canvas_equalizer.pack(fill=tk.X, padx=6, pady=(0, 8))
+
+        # ----------------- Card 1: Dual GPU (Intel UHD & RTX 3050) -----------------
+        self.card_gpu = self._create_card(telemetry_frame, 1, "🎮 DUAL GPU ACCELERATION")
+
+        gpu_top_row = tk.Frame(self.card_gpu, bg=BG_CARD)
+        gpu_top_row.pack(fill=tk.X, padx=10, pady=(2, 0))
+
+        self.lbl_gpu_title = tk.Label(gpu_top_row, text="RTX 3050", font=("Noto Sans", 15, "bold"), fg=TEXT_WHITE, bg=BG_CARD)
+        self.lbl_gpu_title.pack(side=tk.LEFT)
+
+        self.badge_gpu_status = tk.Label(gpu_top_row, text="SLEEP (0W)", font=("Noto Sans", 7, "bold"),
+                                         fg=ACCENT_GREEN, bg="#122b1e", padx=5, pady=2)
+        self.badge_gpu_status.pack(side=tk.RIGHT, pady=4)
+
+        self.lbl_gpu_sub = tk.Label(self.card_gpu, text="UHD: 0 MHz • 0 MB",
+                                    font=("Noto Sans", 8), fg=TEXT_MUTED, bg=BG_CARD)
+        self.lbl_gpu_sub.pack(anchor="w", padx=10, pady=(0, 4))
+
+        # GPU Virtualizer Canvas
+        self.canvas_gpu = GpuVirtualizerCanvas(self.card_gpu, width=200, height=48)
+        self.canvas_gpu.pack(fill=tk.X, padx=6, pady=(0, 8))
 
         # ----------------- Card 2: Cooling & Dual Arc Flow Fans -----------------
-        self.card_thermal = self._create_card(telemetry_frame, 1, "🌪️ THERMALS & DUAL ARC FLOW FANS")
+        self.card_thermal = self._create_card(telemetry_frame, 2, "🌪️ THERMALS & FANS")
 
         therm_top_row = tk.Frame(self.card_thermal, bg=BG_CARD)
-        therm_top_row.pack(fill=tk.X, padx=12, pady=(2, 0))
+        therm_top_row.pack(fill=tk.X, padx=10, pady=(2, 0))
 
-        self.lbl_temp = tk.Label(therm_top_row, text="-- °C", font=("Noto Sans", 17, "bold"), fg=TUF_CYAN, bg=BG_CARD)
+        self.lbl_temp = tk.Label(therm_top_row, text="-- °C", font=("Noto Sans", 16, "bold"), fg=TUF_CYAN, bg=BG_CARD)
         self.lbl_temp.pack(side=tk.LEFT)
 
         self.lbl_fan_status = tk.Label(therm_top_row, text="Turbo Fans", font=("Noto Sans", 7, "bold"),
-                                       fg=TUF_GOLD, bg="#262215", padx=6, pady=2)
+                                       fg=TUF_GOLD, bg="#262215", padx=5, pady=2)
         self.lbl_fan_status.pack(side=tk.RIGHT, pady=4)
 
         # Dual Rotating Fans Canvas Visualizer
-        self.canvas_fans = DualFanVisualizerCanvas(self.card_thermal, width=260, height=62)
-        self.canvas_fans.pack(fill=tk.X, padx=8, pady=(0, 8))
+        self.canvas_fans = DualFanVisualizerCanvas(self.card_thermal, width=200, height=62)
+        self.canvas_fans.pack(fill=tk.X, padx=4, pady=(0, 8))
 
         # ----------------- Card 3: Battery & Power Flow -----------------
-        self.card_bat = self._create_card(telemetry_frame, 2, "🔋 BATTERY & POWER FLOW")
+        self.card_bat = self._create_card(telemetry_frame, 3, "🔋 BATTERY & CHARGE")
 
         bat_top_row = tk.Frame(self.card_bat, bg=BG_CARD)
-        bat_top_row.pack(fill=tk.X, padx=12, pady=(2, 0))
+        bat_top_row.pack(fill=tk.X, padx=10, pady=(2, 0))
 
-        self.lbl_bat_pct = tk.Label(bat_top_row, text="--%", font=("Noto Sans", 17, "bold"), fg=TEXT_WHITE, bg=BG_CARD)
+        self.lbl_bat_pct = tk.Label(bat_top_row, text="--%", font=("Noto Sans", 16, "bold"), fg=TEXT_WHITE, bg=BG_CARD)
         self.lbl_bat_pct.pack(side=tk.LEFT)
 
         self.lbl_bat_watts = tk.Label(bat_top_row, text="--W", font=("Noto Sans", 8, "bold"), fg=ACCENT_GREEN, bg=BG_CARD)
         self.lbl_bat_watts.pack(side=tk.RIGHT, pady=4)
 
         self.lbl_bat_status_detail = tk.Label(self.card_bat, text="Status: Calculating...", font=("Noto Sans", 8), fg=TEXT_MUTED, bg=BG_CARD)
-        self.lbl_bat_status_detail.pack(anchor="w", padx=12, pady=(0, 4))
+        self.lbl_bat_status_detail.pack(anchor="w", padx=10, pady=(0, 4))
 
         # Cyber Segmented Battery Canvas
-        self.canvas_battery = CyberBatteryCanvas(self.card_bat, width=260, height=48)
-        self.canvas_battery.pack(fill=tk.X, padx=10, pady=(0, 8))
+        self.canvas_battery = CyberBatteryCanvas(self.card_bat, width=200, height=48)
+        self.canvas_battery.pack(fill=tk.X, padx=6, pady=(0, 8))
 
     def _create_card(self, parent, col, title):
         card = tk.Frame(parent, bg=BG_CARD, highlightbackground=BORDER_COLOR, highlightthickness=1)
         card.grid(row=0, column=col, padx=4, sticky="nsew")
         lbl = tk.Label(card, text=title, font=("Noto Sans", 8, "bold"), fg=TUF_GOLD, bg=BG_CARD)
-        lbl.pack(anchor="w", padx=12, pady=(8, 2))
+        lbl.pack(anchor="w", padx=10, pady=(8, 2))
         return card
 
     def _build_chart_section(self, parent):
@@ -543,11 +645,15 @@ class TUFControlApp:
 
         tk.Label(legend_frame, text="■", fg=TUF_CYAN, bg=BG_CARD, font=("Noto Sans", 9)).pack(side=tk.LEFT)
         self.lbl_chart_cpu = tk.Label(legend_frame, text="CPU: -- GHz", font=("Noto Sans", 8, "bold"), fg=TEXT_WHITE, bg=BG_CARD)
-        self.lbl_chart_cpu.pack(side=tk.LEFT, padx=(2, 12))
+        self.lbl_chart_cpu.pack(side=tk.LEFT, padx=(2, 10))
 
         tk.Label(legend_frame, text="■", fg=TUF_GOLD, bg=BG_CARD, font=("Noto Sans", 9)).pack(side=tk.LEFT)
         self.lbl_chart_temp = tk.Label(legend_frame, text="Temp: -- °C", font=("Noto Sans", 8, "bold"), fg=TEXT_WHITE, bg=BG_CARD)
-        self.lbl_chart_temp.pack(side=tk.LEFT, padx=(2, 4))
+        self.lbl_chart_temp.pack(side=tk.LEFT, padx=(2, 10))
+
+        tk.Label(legend_frame, text="■", fg=TUF_PURPLE, bg=BG_CARD, font=("Noto Sans", 9)).pack(side=tk.LEFT)
+        self.lbl_chart_gpu = tk.Label(legend_frame, text="GPU: --%", font=("Noto Sans", 8, "bold"), fg=TEXT_WHITE, bg=BG_CARD)
+        self.lbl_chart_gpu.pack(side=tk.LEFT, padx=(2, 4))
 
         self.chart_canvas = TelemetryHistoryChart(chart_card, height=95)
         self.chart_canvas.pack(fill=tk.X, padx=8, pady=(0, 6))
@@ -793,13 +899,14 @@ class TUFControlApp:
     def _telemetry_worker(self):
         while self.running:
             cpu = backend.get_cpu_telemetry()
+            gpu = backend.get_gpu_telemetry()
             fans = backend.get_fans()
             temp = backend.get_max_temp()
             bat = backend.get_battery_telemetry()
-            self.root.after(0, lambda c=cpu, f=fans, t=temp, b=bat: self._update_telemetry_ui(c, f, t, b))
+            self.root.after(0, lambda c=cpu, g=gpu, f=fans, t=temp, b=bat: self._update_telemetry_ui(c, g, f, t, b))
             time.sleep(1.2)
 
-    def _update_telemetry_ui(self, cpu, fans, temp, bat):
+    def _update_telemetry_ui(self, cpu, gpu, fans, temp, bat):
         if not self.running:
             return
 
@@ -821,7 +928,26 @@ class TUFControlApp:
         self.lbl_cpu_sub.configure(text=f"Peak: {max_ghz} GHz • {cores} Cores Active")
         self.canvas_equalizer.update_freqs(cpu.get("freqs", []))
 
-        # 3. Cooling & Thermals & Dual Rotating Fans
+        # 3. Dual GPU (Intel UHD & NVIDIA RTX 3050)
+        dgpu_active = gpu.get("dgpu_active", False)
+        dgpu_status = gpu.get("dgpu_status", "Sleep (0W)")
+        igpu_freq = gpu.get("igpu_freq", 0)
+        igpu_usage = gpu.get("igpu_usage", 0)
+        vram_mb = gpu.get("vram_mb", 0.0)
+
+        gpu_pct = 100 if dgpu_active else igpu_usage
+        if dgpu_active:
+            self.lbl_gpu_title.configure(text="RTX 3050", fg="#ff6b81")
+            self.badge_gpu_status.configure(text="ACTIVE 3D", fg=ACCENT_RED, bg="#3b1117")
+            self.lbl_gpu_sub.configure(text=f"VRAM: {vram_mb} MB • Arc Flow Fan")
+        else:
+            self.lbl_gpu_title.configure(text="RTX 3050", fg=TEXT_WHITE)
+            self.badge_gpu_status.configure(text="SLEEP (0W)", fg=ACCENT_GREEN, bg="#122b1e")
+            self.lbl_gpu_sub.configure(text=f"UHD: {igpu_freq} MHz • {igpu_usage}%")
+
+        self.canvas_gpu.update_gpu(igpu_freq, igpu_usage, vram_mb, dgpu_active, dgpu_status)
+
+        # 4. Cooling & Thermals & Dual Rotating Fans
         self.lbl_temp.configure(text=f"{temp} °C")
         if temp < 55:
             self.lbl_temp.configure(fg=TUF_CYAN)
@@ -834,7 +960,7 @@ class TUFControlApp:
         gpu_fan = fans.get("gpu", 0)
         self.canvas_fans.update_rpms(cpu_fan, gpu_fan)
 
-        # 4. Battery & Power Flow
+        # 5. Battery & Power Flow
         cap = bat.get("capacity", 0)
         status = bat.get("status", "Unknown")
         watts = bat.get("watts", 0.0)
@@ -854,10 +980,12 @@ class TUFControlApp:
             self.lbl_bat_watts.configure(text=rate_str, fg=TUF_GOLD)
             self.lbl_bat_status_detail.configure(text=f"{status} • Limit: {self.current_bat_limit}%")
 
-        # 5. Push data to live 30s history wave chart
-        self.chart_canvas.push_data(avg_ghz, temp)
+        # 6. Push data to live 30s history wave chart
+        self.chart_canvas.push_data(avg_ghz, temp, gpu_pct)
         self.lbl_chart_cpu.configure(text=f"CPU: {avg_ghz} GHz")
         self.lbl_chart_temp.configure(text=f"Temp: {temp} °C")
+        gpu_label_status = "RTX Active" if dgpu_active else f"UHD {igpu_usage}%"
+        self.lbl_chart_gpu.configure(text=f"GPU: {gpu_pct}% ({gpu_label_status})")
 
     def on_close(self):
         self.running = False

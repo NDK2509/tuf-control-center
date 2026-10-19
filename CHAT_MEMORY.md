@@ -103,5 +103,31 @@ Integrated full hardware AURA effect control for ASUS TUF Dash F15 (`aura_tuf.ro
 * **Binaries Updated**: `/usr/bin/asusctl`, `/usr/bin/asusd`, `/usr/bin/asusd-user`, `/usr/bin/asus-shutdown`.
 * **Service Status**: `asusd.service` successfully reloaded and running active on `v6.5.0`.
 
+---
+
+## 7. Dual GPU Virtualization & Hardware Telemetry (Intel UHD + RTX 3050)
+
+* **Architecture Context**: The ASUS TUF Dash F15 (FX517ZC) utilizes an Intel Alder Lake-P hybrid graphics architecture:
+  * **iGPU**: Intel UHD Graphics (`i915` driver, card1)
+  * **dGPU**: NVIDIA GeForce RTX 3050 Mobile (`nouveau` driver, card0)
+  * When no demanding 3D or CUDA load is active, Linux Runtime Power Management puts the RTX 3050 into `D3cold` (0W power consumption).
+* **Backend Implementation (`backend.py`)**:
+  * `get_gpu_telemetry()`:
+    - Reads `/sys/class/drm/card1/gt_act_freq_mhz` to track real-time Intel UHD clock frequency (0 - 1200 MHz boost).
+    - Checks `/sys/class/drm/card0/device/power/runtime_status` for NVIDIA RTX 3050 state (`suspended` / `D3cold` vs `active`).
+    - Scans `/proc/<pid>/fdinfo/<fd>` to aggregate process VRAM allocations (`drm-total-system0:`) and active graphics clients.
+    - Captures dedicated GPU Arc Flow Fan RPM (`fan2_input`).
+* **UI Virtualizer (`app.py`)**:
+  * **`GpuVirtualizerCanvas`**: Dual-engine visualizer showing:
+    - Top: Intel UHD frequency readout + real-time animated turquoise load meter.
+    - Bottom: NVIDIA RTX 3050 power status badge (`● SLEEP (0W)` in green vs `● ACTIVE 3D` in red) with live VRAM allocation tracking.
+  * **Top 4-Card Telemetry Grid**:
+    1. `⚡ CPU CLOCK SPECTRUM`: 12-core equalizer + throttling watchdog.
+    2. `🎮 DUAL GPU ACCELERATION`: Dual GPU state, frequency, load meter, and VRAM.
+    3. `🌪️ THERMALS & FANS`: Package thermals + rotating dual Arc Flow fans.
+    4. `🔋 BATTERY & CHARGE`: Capacity, charge cap limit indicator, and power draw.
+  * **3-Wave Rolling Telemetry History Chart**: Expanded `TelemetryHistoryChart` to plot live CPU Clock (Cyan), Temperature (TUF Gold), and GPU Load (Purple `#c084fc`) across a rolling 30-sample window.
+
+
 
 

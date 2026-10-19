@@ -29,7 +29,10 @@ A lightweight, native Linux desktop GUI application designed specifically for th
    - Native single-color LED hardware support.
 
 5. **📊 Real-time Hardware Telemetry & Live Visualizers**:
-   - **📈 30s Dual-Wave Real-Time Telemetry Chart**: Continuous rolling graph tracking live CPU Clock (GHz in Cyan) and Package Temperature (°C in TUF Gold).
+   - **📈 30s 3-Wave Real-Time Telemetry Chart**: Continuous rolling graph tracking live CPU Clock (GHz in Cyan), Package Temperature (°C in TUF Gold), and Dual GPU Activity (% in Purple).
+   - **🎮 Dual GPU Acceleration Virtualizer**: Real-time telemetry for hybrid GPU architecture:
+     * **Intel UHD iGPU**: Live frequency monitoring (0 - 1200 MHz boost clock) with an active load meter.
+     * **NVIDIA RTX 3050 Mobile dGPU**: Real-time PCI runtime power state tracking (`D3cold` 0W sleep vs `Active 3D`), DRM VRAM allocation tracking, and active graphics client process detection.
    - **⚡ 12-Core CPU Spectrum Equalizer**: Live individual frequency bars for each of the 12 Alder Lake-P cores with dynamic color bands and peak indicators.
    - **🌪️ Dual Arc Flow Fan Virtualizer**: Real-time circular arc tachometers with animated rotating 5-blade fan rotors spinning proportionally to CPU/GPU RPM.
    - **🔋 Cyber Segmented Battery Meter**: 10-block illuminated status bar with charging pulse animation and visible charge limit threshold marker.
