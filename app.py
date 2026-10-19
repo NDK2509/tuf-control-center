@@ -360,14 +360,15 @@ class TUFControlApp:
     def __init__(self, root: tk.Tk):
         self.root = root
         self.root.title("TUF Control Center - ASUS TUF Dash F15")
-        self.root.geometry("900x820")
-        self.root.minsize(860, 760)
+        self.root.geometry("920x890")
+        self.root.minsize(880, 820)
         self.root.configure(bg=BG_MAIN)
 
         self.current_profile = "Balanced"
         self.current_fan_mode = "Balanced"
         self.current_bat_limit = 100
         self.current_led = "Med"
+        self.current_aura_mode = "Static"
         self.running = True
 
         # Try to load icon
@@ -606,15 +607,15 @@ class TUFControlApp:
         card = tk.Frame(parent, bg=BG_CARD, highlightbackground=BORDER_COLOR, highlightthickness=1)
         card.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
 
-        title = tk.Label(card, text="🔋 BATTERY HEALTH LIMIT", font=("Noto Sans", 9, "bold"), fg=TUF_GOLD, bg=BG_CARD)
+        title = tk.Label(card, text="🔋 BATTERY HEALTH CARE", font=("Noto Sans", 9, "bold"), fg=TUF_GOLD, bg=BG_CARD)
         title.pack(anchor="w", padx=12, pady=(8, 2))
 
         sub = tk.Label(card, text="Cap maximum charge to prolong battery lifespan",
                        font=("Noto Sans", 8), fg=TEXT_MUTED, bg=BG_CARD)
-        sub.pack(anchor="w", padx=12, pady=(0, 8))
+        sub.pack(anchor="w", padx=12, pady=(0, 6))
 
         btn_row = tk.Frame(card, bg=BG_CARD)
-        btn_row.pack(fill=tk.X, padx=10, pady=(0, 10))
+        btn_row.pack(fill=tk.X, padx=10, pady=(0, 8))
 
         self.bat_limit_buttons = {}
         presets = [
@@ -629,23 +630,58 @@ class TUFControlApp:
             btn.bind("<Button-1>", lambda e, val=limit: self.select_battery_limit(val))
             self.bat_limit_buttons[limit] = btn
 
+        # Info advice block
+        tip_frame = tk.Frame(card, bg="#12141c", highlightbackground=BORDER_COLOR, highlightthickness=1)
+        tip_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
+
+        self.lbl_bat_advice = tk.Label(tip_frame,
+                                       text="💡 Lifespan Tip: Setting 80% limit prevents lithium cell oxidation when AC power remains plugged in. Use 100% when traveling.",
+                                       font=("Noto Sans", 7), fg=TEXT_MUTED, bg="#12141c", wraplength=380, justify="left", padx=8, pady=6)
+        self.lbl_bat_advice.pack(anchor="w")
+
     def _build_keyboard_card(self, parent):
         card = tk.Frame(parent, bg=BG_CARD, highlightbackground=BORDER_COLOR, highlightthickness=1)
         card.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(5, 0))
 
-        title = tk.Label(card, text="⌨️ KEYBOARD BACKLIGHT", font=("Noto Sans", 9, "bold"), fg=TUF_GOLD, bg=BG_CARD)
-        title.pack(anchor="w", padx=12, pady=(8, 2))
+        title_row = tk.Frame(card, bg=BG_CARD)
+        title_row.pack(fill=tk.X, padx=12, pady=(8, 2))
 
-        sub = tk.Label(card, text="Adjust AURA keyboard LED lighting level", font=("Noto Sans", 8), fg=TEXT_MUTED, bg=BG_CARD)
-        sub.pack(anchor="w", padx=12, pady=(0, 8))
+        title = tk.Label(title_row, text="⌨️ KEYBOARD BACKLIGHT", font=("Noto Sans", 9, "bold"), fg=TUF_GOLD, bg=BG_CARD)
+        title.pack(side=tk.LEFT)
 
-        btn_row = tk.Frame(card, bg=BG_CARD)
-        btn_row.pack(fill=tk.X, padx=10, pady=(0, 10))
+        self.lbl_aura_active_badge = tk.Label(title_row, text="Static • Med", font=("Noto Sans", 7, "bold"),
+                                              fg=TUF_CYAN, bg="#12242c", padx=6, pady=2)
+        self.lbl_aura_active_badge.pack(side=tk.RIGHT)
+
+        sub = tk.Label(card, text="Hardware backlight animation effect & brightness levels",
+                       font=("Noto Sans", 8), fg=TEXT_MUTED, bg=BG_CARD)
+        sub.pack(anchor="w", padx=12, pady=(0, 6))
+
+        # 1. Backlight Effect Types (Static, Breathe, Pulse)
+        type_row = tk.Frame(card, bg=BG_CARD)
+        type_row.pack(fill=tk.X, padx=10, pady=(0, 6))
+
+        self.aura_mode_buttons = {}
+        modes = [
+            ("Static", "✨ Static"),
+            ("Breathe", "💨 Breathe"),
+            ("Pulse", "⚡ Pulse")
+        ]
+        for m_id, m_text in modes:
+            btn = tk.Label(type_row, text=m_text, font=("Noto Sans", 8, "bold"), fg=TEXT_WHITE, bg=BG_ACTIVE,
+                           padx=6, pady=7, highlightbackground=BORDER_COLOR, highlightthickness=1, cursor="hand2")
+            btn.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=2)
+            btn.bind("<Button-1>", lambda e, name=m_id: self.select_aura_mode(name))
+            self.aura_mode_buttons[m_id] = btn
+
+        # 2. Brightness row
+        b_btns = tk.Frame(card, bg=BG_CARD)
+        b_btns.pack(fill=tk.X, padx=10, pady=(0, 10))
 
         self.led_buttons = {}
         for level in ["Off", "Low", "Med", "High"]:
-            btn = tk.Label(btn_row, text=level, font=("Noto Sans", 8, "bold"), fg=TEXT_WHITE, bg=BG_ACTIVE,
-                           padx=8, pady=7, highlightbackground=BORDER_COLOR, highlightthickness=1, cursor="hand2")
+            btn = tk.Label(b_btns, text=level, font=("Noto Sans", 8, "bold"), fg=TEXT_WHITE, bg=BG_ACTIVE,
+                           padx=6, pady=6, highlightbackground=BORDER_COLOR, highlightthickness=1, cursor="hand2")
             btn.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=2)
             btn.bind("<Button-1>", lambda e, lvl=level: self.select_led_brightness(lvl))
             self.led_buttons[level] = btn
@@ -679,14 +715,16 @@ class TUFControlApp:
             fan_mode = backend.get_fan_mode()
             bat_limit = backend.get_battery_limit()
             led = backend.get_led_brightness()
-            self.root.after(0, lambda: self._apply_controls_state(prof, fan_mode, bat_limit, led))
+            aura_mode = backend.get_aura_mode()
+            self.root.after(0, lambda: self._apply_controls_state(prof, fan_mode, bat_limit, led, aura_mode))
         threading.Thread(target=worker, daemon=True).start()
 
-    def _apply_controls_state(self, profile: str, fan_mode: str, bat_limit: int, led: str):
+    def _apply_controls_state(self, profile: str, fan_mode: str, bat_limit: int, led: str, aura_mode: str):
         self.current_profile = profile
         self.current_fan_mode = fan_mode
         self.current_bat_limit = bat_limit
         self.current_led = led
+        self.current_aura_mode = aura_mode
 
         for m_id, item in self.fan_buttons.items():
             if m_id.lower() == fan_mode.lower():
@@ -713,6 +751,14 @@ class TUFControlApp:
             else:
                 btn.configure(bg=BG_ACTIVE, fg=TEXT_WHITE, highlightbackground=BORDER_COLOR, highlightthickness=1)
 
+        for m_id, btn in self.aura_mode_buttons.items():
+            if m_id.lower() == aura_mode.lower():
+                btn.configure(bg="#2d2812", fg=TUF_GOLD, highlightbackground=TUF_GOLD, highlightthickness=2)
+            else:
+                btn.configure(bg=BG_ACTIVE, fg=TEXT_WHITE, highlightbackground=BORDER_COLOR, highlightthickness=1)
+
+        self.lbl_aura_active_badge.configure(text=f"{aura_mode} • {led}")
+
     def select_fan_mode(self, mode_name: str):
         def worker():
             backend.set_fan_mode(mode_name)
@@ -735,6 +781,12 @@ class TUFControlApp:
     def select_led_brightness(self, level: str):
         def worker():
             backend.set_led_brightness(level)
+            self.root.after(0, self.refresh_controls_state)
+        threading.Thread(target=worker, daemon=True).start()
+
+    def select_aura_mode(self, mode_name: str):
+        def worker():
+            backend.set_aura_effect(mode_name)
             self.root.after(0, self.refresh_controls_state)
         threading.Thread(target=worker, daemon=True).start()
 

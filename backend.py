@@ -99,6 +99,37 @@ def set_led_brightness(level: str) -> bool:
     run_cmd(["asusctl", "leds", "set", lvl])
     return True
 
+def get_aura_mode() -> str:
+    """Read the active keyboard backlight mode (Static, Breathe, Pulse) from aura config."""
+    try:
+        if os.path.exists("/etc/asusd/aura_tuf.ron"):
+            with open("/etc/asusd/aura_tuf.ron", "r") as f:
+                content = f.read()
+            m = re.search(r"current_mode:\s*(\w+)", content)
+            if m:
+                return m.group(1).capitalize()
+    except Exception:
+        pass
+    return "Static"
+
+def set_aura_effect(mode: str) -> bool:
+    """Set keyboard lighting mode (Static, Breathe, Pulse) via asusctl."""
+    m = mode.capitalize()
+    try:
+        if m == "Static":
+            run_cmd(["asusctl", "aura", "effect", "static", "-c", "ffffff"])
+            return True
+        elif m == "Breathe":
+            run_cmd(["asusctl", "aura", "effect", "breathe", "--colour", "ffffff", "--colour2", "000000", "--speed", "med"])
+            return True
+        elif m == "Pulse":
+            run_cmd(["asusctl", "aura", "effect", "pulse", "-c", "ffffff"])
+            return True
+    except Exception:
+        pass
+    return False
+
+
 def get_fan_mode() -> str:
     """Get active EC thermal fan mode based on current profile and policy."""
     prof = get_active_profile()

@@ -23,8 +23,10 @@ A lightweight, native Linux desktop GUI application designed specifically for th
    - **80% (Balanced)**: Balances battery longevity and daily mobility.
    - **100% (Maximum)**: Full battery capacity for travel.
 
-4. **⌨️ Keyboard Backlight Control**:
-   - 4-level brightness: `Off`, `Low`, `Med`, `High`.
+4. **⌨️ Keyboard Backlight & Lighting Effects**:
+   - **Effect Types**: `✨ Static`, `💨 Breathe`, and `⚡ Pulse`.
+   - **4-Level Brightness**: `Off`, `Low`, `Med`, and `High`.
+   - Native single-color LED hardware support.
 
 5. **📊 Real-time Hardware Telemetry & Live Visualizers**:
    - **📈 30s Dual-Wave Real-Time Telemetry Chart**: Continuous rolling graph tracking live CPU Clock (GHz in Cyan) and Package Temperature (°C in TUF Gold).

@@ -81,3 +81,17 @@ Integrated high-performance custom Tkinter Canvas visualization widgets with 0% 
 3. **🔋 Cyber Segmented Battery Meter**: 10-block illuminated battery gauge with charging pulse animation and visible charge limit threshold marker.
 4. **📈 30s Real-Time Dual-Wave Telemetry Chart**: Rolling Bezier curve graph tracking CPU Avg Clock (`#00e5ff`) and Package Temp (`#ffaa00`) with dynamic grid lines, range markers, and live value nodes.
 
+---
+
+## 5. Keyboard AURA Backlight Effects & Modes Support (2026-10-20)
+
+Integrated full hardware AURA effect control for ASUS TUF Dash F15 (`aura_tuf.ron`):
+* **Single-Color LED Backlight**: This laptop hardware features single-color (non-RGB) keyboard backlighting.
+* **Effect Types**:
+  * ✨ **Static**: Solid continuous illumination.
+  * 💨 **Breathe**: Smooth two-phase breathing fade.
+  * ⚡ **Pulse**: Rhythmic heartbeat pulsing effect.
+* **Brightness Control**: 4 hardware levels (`Off`, `Low`, `Med`, `High`).
+* **Hardware Interfacing**: Real-time D-Bus communication with `asusctl aura effect <mode>` and parsing `/etc/asusd/aura_tuf.ron`.
+
+
